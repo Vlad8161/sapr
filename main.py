@@ -7,6 +7,8 @@ from PyQt5.QtWidgets import QApplication, QWidget
 from PyQt5.QtWidgets import QGraphicsScene
 from PyQt5.QtWidgets import QGraphicsView
 from PyQt5.QtWidgets import QPushButton
+from PyQt5.QtWidgets import QTextEdit
+
 from displacement.sequential import SequentialDisplacement
 
 d = [
@@ -37,13 +39,16 @@ t = [
 
 
 class MainWidget(QWidget):
-    def __init__(self, flags=None, *args, **kwargs):
+    def __init__(self, a_schema, flags=None, *args, **kwargs):
         super().__init__(flags, *args, **kwargs)
+        self.schema = a_schema
         self.displacement_alg = None
         self.setGeometry(300, 300, 600, 600)
         self.graphics_scene = QGraphicsScene()
         self.graphics_view = QGraphicsView(self.graphics_scene, self)
         self.graphics_view.setGeometry(0, 0, 300, 300)
+        self.te_log = QTextEdit(self)
+        self.te_log.setGeometry(0, 300, 600, 300)
         btn_start = QPushButton('Start', self)
         btn_start.setGeometry(320, 10, 80, 30)
         btn_start.clicked.connect(self.on_start_clicked)
@@ -76,22 +81,57 @@ class MainWidget(QWidget):
                     self.graphics_scene.addText('{0}'.format(v)).setPos(0, 50)
 
     def on_start_clicked(self):
-        self.displacement_alg = SequentialDisplacement(d, t)
+        self.displacement_alg = SequentialDisplacement(self.schema['matr_d'], t)
         self.view_displacement(self.displacement_alg.map)
+        self.te_log.setText('')
 
     def on_next_clicked(self):
         if self.displacement_alg is not None:
-            self.displacement_alg.next_step()
+            self.te_log.setText('')
+            res, log = self.displacement_alg.next_step()
             self.view_displacement(self.displacement_alg.map)
+            if res:
+                self.te_log.setText(log)
 
     def on_end_clicked(self):
         if self.displacement_alg is not None:
+            self.te_log.setText('')
             self.displacement_alg.compute_all()
             self.view_displacement(self.displacement_alg.map)
 
 
+def parse_input():
+    with open('input.txt', 'rt') as f:
+        wires_detailed = {}
+        for line in f:
+            k, v = line.split(':')
+            v = v.strip()
+            k = int(k)
+            wire = [tuple([int(j) for j in i.strip().split('_')]) for i in v.split(',') if len(i) != 0]
+            wires_detailed[k] = wire
+        wires = {k: {i[0] for i in v} for k, v in wires_detailed.items()}
+        elements_set = set()
+        for k, v in wires.items():
+            elements_set = elements_set | v
+        matr_d = []
+        for i in elements_set:
+            connections = [0] * len(elements_set)
+            for j in elements_set:
+                for k, v in wires.items():
+                    if i != j and (i in v) and (j in v):
+                        connections[j] += 1
+            matr_d.append(connections)
+        return {
+            'wires': wires,
+            'wires_detailed': wires_detailed,
+            'matr_d': matr_d,
+            'elements_set': elements_set,
+        }
+
+
 if __name__ == '__main__':
+    schema = parse_input()
     app = QApplication(sys.argv)
-    main_widget = MainWidget()
+    main_widget = MainWidget(schema)
     main_widget.show()
     sys.exit(app.exec_())
