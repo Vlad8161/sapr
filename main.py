@@ -1,85 +1,13 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+
 import sys
 
-
-class DisplacementAlgorithm:
-    def __init__(self, connection_matrix, distance_matrix):
-        super().__init__()
-        self.connection_matrix = connection_matrix
-        self.distance_matrix = distance_matrix
-        self.elements_set = set(range(len(distance_matrix)))
-        self.map = {i: None for i in self.elements_set}
-        self.map[0] = 0
-        self.first_step = True
-
-    def next_step(self):
-        if set(self.map.values()).issuperset(self.elements_set):
-            return False
-
-        if self.first_step:
-            element_to_place = self.select_first_element()
-            self.first_step = False
-        else:
-            element_to_place = self.select_next_element()
-
-        place_for_element = self.select_place(element_to_place)
-        self.map[place_for_element] = element_to_place
-
-        return True
-
-    def select_first_element(self):
-        max_sum = None
-        ret_val = None
-        placed_elements = [i for i in self.elements_set if i in self.map.values()]
-        unplaced_elements = [i for i in self.elements_set if i not in self.map.values()]
-        for i in unplaced_elements:
-            connections = self.connection_matrix[i]
-            sum_connections = 0
-            for j in unplaced_elements:
-                if j != i:
-                    sum_connections += connections[j]
-            if max_sum is None or sum_connections > max_sum:
-                max_sum = sum_connections
-                ret_val = i
-        return ret_val
-
-    def select_next_element(self):
-        max_sum = None
-        ret_val = None
-        placed_elements = [i for i in self.elements_set if i in self.map.values()]
-        unplaced_elements = [i for i in self.elements_set if i not in self.map.values()]
-        for i in unplaced_elements:
-            connections = self.connection_matrix[i]
-            sum_connections = 0
-            for j in self.elements_set:
-                if j != i:
-                    if i in placed_elements:
-                        sum_connections += connections[j]
-                    elif i in unplaced_elements:
-                        sum_connections -= connections[j]
-            if max_sum is None or sum_connections > max_sum:
-                max_sum = sum_connections
-                ret_val = i
-        return ret_val
-
-    def select_place(self, element_to_place):
-        free_positions = [key for key, value in self.map.items() if value is None]
-        ret_val = None
-        min_l = None
-        for i in free_positions:
-            l = self.compute_l(element_to_place, i)
-            if ret_val is None or l < min_l:
-                ret_val = i
-                min_l = l
-        return ret_val
-
-    def compute_l(self, element, position):
-        ret_val = 0
-        for key, value in self.map.items():
-            if value is not None:
-                ret_val += self.connection_matrix[element][value] * self.distance_matrix[position][key]
-
-        return ret_val
-
+from PyQt5.QtWidgets import QApplication, QWidget
+from PyQt5.QtWidgets import QGraphicsScene
+from PyQt5.QtWidgets import QGraphicsView
+from PyQt5.QtWidgets import QPushButton
+from displacement.sequential import SequentialDisplacement
 
 d = [
     [0, 0, 0, 0, 3, 2, 2, 4, 2, 1],
@@ -107,8 +35,63 @@ t = [
     [3, 4, 3, 2, 1, 2, 3, 2, 1, 0],
 ]
 
-alg = DisplacementAlgorithm(connection_matrix=d, distance_matrix=t)
-while alg.next_step():
-    for pos, elem in alg.map.items():
-        print('{0} : {1}'.format(pos, elem))
-    sys.stdin.read(1)
+
+class MainWidget(QWidget):
+    def __init__(self, flags=None, *args, **kwargs):
+        super().__init__(flags, *args, **kwargs)
+        self.displacement_alg = None
+        self.setGeometry(300, 300, 600, 600)
+        self.graphics_scene = QGraphicsScene()
+        self.graphics_view = QGraphicsView(self.graphics_scene, self)
+        self.graphics_view.setGeometry(0, 0, 300, 300)
+        btn_start = QPushButton('Start', self)
+        btn_start.setGeometry(320, 10, 80, 30)
+        btn_start.clicked.connect(self.on_start_clicked)
+        btn_next = QPushButton('Next', self)
+        btn_next.setGeometry(320, 50, 80, 30)
+        btn_next.clicked.connect(self.on_next_clicked)
+        btn_end = QPushButton('End', self)
+        btn_end.setGeometry(320, 90, 80, 30)
+        btn_end.clicked.connect(self.on_end_clicked)
+
+    def view_displacement(self, displacement_map):
+        self.graphics_scene.clear()
+        for k, v in displacement_map.items():
+            if k != 0:
+                item_pos = k - 1
+                width = 30
+                height = 30
+                space = 10
+                x_pos = 20 + (int(item_pos / 3) * (width + space)) + space
+                if int(item_pos / 3) % 2 == 0:
+                    y_pos = ((item_pos % 3) * (height + space)) + space
+                else:
+                    y_pos = 130 - height - (((item_pos % 3) * (height + space)) + space)
+                self.graphics_scene.addRect(x_pos, y_pos, width, height)
+                if v is not None:
+                    self.graphics_scene.addText('{0}'.format(v)).setPos(x_pos, y_pos)
+            else:
+                self.graphics_scene.addRect(0, 0, 20, 130)
+                if v is not None:
+                    self.graphics_scene.addText('{0}'.format(v)).setPos(0, 50)
+
+    def on_start_clicked(self):
+        self.displacement_alg = SequentialDisplacement(d, t)
+        self.view_displacement(self.displacement_alg.map)
+
+    def on_next_clicked(self):
+        if self.displacement_alg is not None:
+            self.displacement_alg.next_step()
+            self.view_displacement(self.displacement_alg.map)
+
+    def on_end_clicked(self):
+        if self.displacement_alg is not None:
+            self.displacement_alg.compute_all()
+            self.view_displacement(self.displacement_alg.map)
+
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    main_widget = MainWidget()
+    main_widget.show()
+    sys.exit(app.exec_())
