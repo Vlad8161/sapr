@@ -103,12 +103,35 @@ class MainWidget(QWidget):
 def parse_input():
     with open('input.txt', 'rt') as f:
         wires_detailed = {}
+        package_list = {}
+        packages = {}
+        parsing_connections = True
         for line in f:
-            k, v = line.split(':')
-            v = v.strip()
-            k = int(k)
-            wire = [tuple([int(j) for j in i.strip().split('_')]) for i in v.split(',') if len(i) != 0]
-            wires_detailed[k] = wire
+            if line.strip() == '':
+                parsing_connections = False
+                continue
+
+            if parsing_connections:
+                k, v = line.split(':')
+                v = v.strip()
+                k = int(k)
+                wire = [tuple([int(j) for j in i.strip().split('_')]) for i in v.split(',') if len(i) != 0]
+                wires_detailed[k] = wire
+            else:
+                k, v = line.split(':')
+                v = v.strip()
+                if v not in package_list.keys():
+                    with open('packages/' + v + '.txt', 'rt') as package_file:
+                        i = 1
+                        package = {}
+                        for line2 in package_file:
+                            package[i] = tuple([int(j.strip()) for j in line2.split(',')])
+                            i += 1
+                        package_list[v] = package
+                    packages[int(k)] = package
+                else:
+                    packages[int(k)] = {k: v for k, v in package_list[v].items()}
+
         wires = {k: {i[0] for i in v} for k, v in wires_detailed.items()}
         elements_set = set()
         for k, v in wires.items():
@@ -126,11 +149,15 @@ def parse_input():
             'wires_detailed': wires_detailed,
             'matr_d': matr_d,
             'elements_set': elements_set,
+            'packages': packages,
+            'package_list': package_list,
         }
 
 
 if __name__ == '__main__':
     schema = parse_input()
+    for k, v in schema['packages'].items():
+        print('{0} : {1}'.format(k, v))
     app = QApplication(sys.argv)
     main_widget = MainWidget(schema)
     main_widget.show()
