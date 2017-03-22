@@ -28,9 +28,8 @@ simple_routing = SimpleRouting(
     schema['packages']
 )
 
-while True:
-    for i in simple_routing.work_field:
-        print(''.join(['   ' if j == 0 else '  *' if j == -1 else ' ' + str(j) if j > 9 else '  ' + str(j) for j in i]))
-    print('--------------------')
-    sys.stdin.read(1)
-    simple_routing.next_step()
+while not simple_routing.next_step():
+    pass
+
+for i in simple_routing.work_field:
+    print(''.join(['   ' if j == 0 else ' o ' if j == -1 else '---' if j == -2 else ' | ' if j == -3 else ' + ' if j == -4 else ' ' + str(j) if j > 9 else ' ' + str(j) + ' ' for j in i]))

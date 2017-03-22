@@ -7,6 +7,7 @@ class SimpleRouting:
     def __init__(self, connections, positions, packages):
         super().__init__()
         self.current_backward_coord = None
+        self.prev_backward_coord = None
         self.direction = None
         self.wave_length = None
         self.current_segment_index = None
@@ -39,7 +40,6 @@ class SimpleRouting:
 
         start_coord = self.segments[self.current_segment_index][0]
         end_coord = self.segments[self.current_segment_index][1]
-        print(end_coord)
 
         if self.direction:
             if self.wave_length == 0:
@@ -70,6 +70,7 @@ class SimpleRouting:
                             if val == self.wave_length or k == start_coord:
                                 if curr_coord == end_coord:
                                     self.direction = False
+                                    self.prev_backward_coord = end_coord
                                     break
                                 elif curr_val == 0:
                                     self.set_field_value(curr_coord, self.wave_length + 1)
@@ -81,16 +82,22 @@ class SimpleRouting:
         else:
             if self.current_backward_coord is not None and self.current_backward_coord == start_coord:
                 self.to_next_segment()
+                return False
 
             if self.current_backward_coord is None:
-                print(self.wave_length)
+
                 buf = [i for i in self.get_closest_fields(end_coord) if self.get_field_value(i) == self.wave_length]
                 self.current_backward_coord = buf[0]
             else:
-                self.set_field_value(self.current_backward_coord, -1)
-                self.current_backward_coord = [i for i in self.get_closest_fields(self.current_backward_coord)
-                                               if self.get_field_value(i) == self.wave_length][0]
+                self.next_backward()
+                self.prev_backward_coord = self.current_backward_coord
+                if self.wave_length == 0:
+                    self.current_backward_coord = start_coord
+                else:
+                    self.current_backward_coord = [i for i in self.get_closest_fields(self.current_backward_coord)
+                                                   if self.get_field_value(i) == self.wave_length][0]
             self.wave_length -= 1
+        return False
 
     def compute_positions(self):
         for i in self.packages.keys():
@@ -128,12 +135,14 @@ class SimpleRouting:
         self.wave_length = 0
         self.direction = True
         self.current_backward_coord = None
+        self.prev_backward_coord = None
 
     def to_next_segment(self):
         self.current_segment_index += 1
         self.wave_length = 0
         self.direction = True
         self.current_backward_coord = None
+        self.prev_backward_coord = None
 
     def get_closest_fields(self, coord):
         ret_val = []
@@ -158,3 +167,20 @@ class SimpleRouting:
             for j in range(len(i)):
                 if i[j] > 0:
                     i[j] = 0
+
+    def next_backward(self):
+        if self.current_backward_coord is None:
+            return
+
+        if self.prev_backward_coord is None:
+            self.set_field_value(self.current_backward_coord, -1)
+            return
+
+        if self.prev_backward_coord[0] == self.current_backward_coord[0]:
+            self.set_field_value(self.current_backward_coord, -2)
+        elif self.prev_backward_coord[1] == self.current_backward_coord[1]:
+            self.set_field_value(self.current_backward_coord, -3)
+
+        if self.get_field_value(self.prev_backward_coord) != self.get_field_value(self.current_backward_coord):
+            if self.get_field_value(self.prev_backward_coord) != -1:
+                self.set_field_value(self.prev_backward_coord, -4)
