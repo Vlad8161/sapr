@@ -3,13 +3,17 @@
 
 import sys
 
+from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import QApplication, QWidget
 from PyQt5.QtWidgets import QGraphicsScene
 from PyQt5.QtWidgets import QGraphicsView
+from PyQt5.QtWidgets import QHBoxLayout
 from PyQt5.QtWidgets import QPushButton
 from PyQt5.QtWidgets import QTextEdit
+from PyQt5.QtWidgets import QVBoxLayout
 
 from displacement.sequential import SequentialDisplacement
+from routing.simple import SimpleRouting
 
 d = [
     [0, 0, 0, 0, 3, 2, 2, 4, 2, 1],
@@ -43,21 +47,62 @@ class MainWidget(QWidget):
         super().__init__(flags, *args, **kwargs)
         self.schema = a_schema
         self.displacement_alg = None
+        self.routing_alg = None
         self.setGeometry(300, 300, 600, 600)
         self.graphics_scene = QGraphicsScene()
         self.graphics_view = QGraphicsView(self.graphics_scene, self)
         self.graphics_view.setGeometry(0, 0, 300, 300)
         self.te_log = QTextEdit(self)
         self.te_log.setGeometry(0, 300, 600, 300)
+
         btn_start = QPushButton('Start', self)
         btn_start.setGeometry(320, 10, 80, 30)
-        btn_start.clicked.connect(self.on_start_clicked)
+        btn_start.clicked.connect(self.on_displacement_start_clicked)
         btn_next = QPushButton('Next', self)
         btn_next.setGeometry(320, 50, 80, 30)
-        btn_next.clicked.connect(self.on_next_clicked)
+        btn_next.clicked.connect(self.on_displacement_next_clicked)
         btn_end = QPushButton('End', self)
         btn_end.setGeometry(320, 90, 80, 30)
-        btn_end.clicked.connect(self.on_end_clicked)
+        btn_end.clicked.connect(self.on_displacement_end_clicked)
+
+        main_layout = QVBoxLayout()
+
+        h_box_layout = QHBoxLayout()
+        h_box_layout.addWidget(self.graphics_view)
+        h_box_layout.addWidget(self.te_log)
+        main_layout.addLayout(h_box_layout)
+
+        h_box_layout = QHBoxLayout()
+        h_box_layout.addWidget(btn_start)
+        h_box_layout.addWidget(btn_next)
+        h_box_layout.addWidget(btn_end)
+        main_layout.addLayout(h_box_layout)
+
+        self.routing_view = QTextEdit(self)
+        font = QFont()
+        font.setStyleHint(QFont.Monospace)
+        font.setPixelSize(10)
+        self.routing_view.setFont(font)
+        self.routing_view.setLineWrapMode(QTextEdit.NoWrap)
+
+        main_layout.addWidget(self.routing_view)
+
+        btn_start = QPushButton('Start', self)
+        btn_start.setGeometry(320, 10, 80, 30)
+        btn_start.clicked.connect(self.on_routing_start_clicked)
+        btn_next = QPushButton('Next', self)
+        btn_next.setGeometry(320, 50, 80, 30)
+        btn_next.clicked.connect(self.on_routing_next_clicked)
+        btn_end = QPushButton('End', self)
+        btn_end.setGeometry(320, 90, 80, 30)
+        btn_end.clicked.connect(self.on_routing_end_clicked)
+        h_box_layout = QHBoxLayout()
+        h_box_layout.addWidget(btn_start)
+        h_box_layout.addWidget(btn_next)
+        h_box_layout.addWidget(btn_end)
+        main_layout.addLayout(h_box_layout)
+
+        self.setLayout(main_layout)
 
     def view_displacement(self, displacement_map):
         self.graphics_scene.clear()
@@ -80,24 +125,48 @@ class MainWidget(QWidget):
                 if v is not None:
                     self.graphics_scene.addText('{0}'.format(v)).setPos(0, 50)
 
-    def on_start_clicked(self):
+    def on_displacement_start_clicked(self):
         self.displacement_alg = SequentialDisplacement(self.schema['matr_d'], t)
         self.view_displacement(self.displacement_alg.map)
         self.te_log.setText('')
 
-    def on_next_clicked(self):
+    def on_displacement_next_clicked(self):
         if self.displacement_alg is not None:
             self.te_log.setText('')
             res, log = self.displacement_alg.next_step()
             self.view_displacement(self.displacement_alg.map)
             if res:
                 self.te_log.setText(log)
+                self.schema['disp'] = {k: v for k, v in self.displacement_alg.map.items()}
 
-    def on_end_clicked(self):
+    def on_displacement_end_clicked(self):
         if self.displacement_alg is not None:
             self.te_log.setText('')
             self.displacement_alg.compute_all()
             self.view_displacement(self.displacement_alg.map)
+            self.schema['disp'] = {k: v for k, v in self.displacement_alg.map.items()}
+
+    def on_routing_start_clicked(self):
+        try:
+            self.routing_alg = SimpleRouting(
+                self.schema['wires_detailed'],
+                self.schema['disp'],
+                self.schema['packages']
+            )
+            self.routing_view.setText(self.routing_alg.render())
+        except KeyError:
+            pass
+
+    def on_routing_next_clicked(self):
+        if self.routing_alg is not None:
+            self.routing_alg.next_step()
+            self.routing_view.setText(self.routing_alg.render())
+
+    def on_routing_end_clicked(self):
+        while not self.routing_alg.next_step():
+            pass
+        self.routing_alg.next_step()
+        self.routing_view.setText(self.routing_alg.render())
 
 
 def parse_input():

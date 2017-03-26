@@ -85,7 +85,6 @@ class SimpleRouting:
                 return False
 
             if self.current_backward_coord is None:
-
                 buf = [i for i in self.get_closest_fields(end_coord) if self.get_field_value(i) == self.wave_length]
                 self.current_backward_coord = buf[0]
             else:
@@ -93,11 +92,32 @@ class SimpleRouting:
                 self.prev_backward_coord = self.current_backward_coord
                 if self.wave_length == 0:
                     self.current_backward_coord = start_coord
+                    if self.prev_backward_coord[0] != self.current_backward_coord[0]:
+                        if self.get_field_value(self.prev_backward_coord) != -3:
+                            self.set_field_value(self.prev_backward_coord, -4)
+                    elif self.prev_backward_coord[1] != self.current_backward_coord[1]:
+                        if self.get_field_value(self.prev_backward_coord) != -2:
+                            self.set_field_value(self.prev_backward_coord, -4)
                 else:
                     self.current_backward_coord = [i for i in self.get_closest_fields(self.current_backward_coord)
                                                    if self.get_field_value(i) == self.wave_length][0]
             self.wave_length -= 1
         return False
+
+    def render(self):
+        ret_val = ''
+        for i in self.work_field:
+            ret_val += ''.join(
+                '   ' if j == 0 else
+                ' o ' if j == -1 else
+                '---' if j == -2 else
+                ' | ' if j == -3 else
+                ' + ' if j == -4 else
+                ' ' + str(j) if j > 9 else
+                ' ' + str(j) + ' '
+                for j in i
+            ) + '\n'
+        return ret_val
 
     def compute_positions(self):
         for i in self.packages.keys():
