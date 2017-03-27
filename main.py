@@ -79,9 +79,10 @@ class MainWidget(QWidget):
         main_layout.addLayout(h_box_layout)
 
         self.routing_view = QTextEdit(self)
-        font = QFont()
+        font = QFont('Monospace')
         font.setStyleHint(QFont.Monospace)
         font.setPixelSize(10)
+        font.setStyleHint(QFont.TypeWriter)
         self.routing_view.setFont(font)
         self.routing_view.setLineWrapMode(QTextEdit.NoWrap)
 
